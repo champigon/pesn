@@ -1,7 +1,21 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {downloadCatalog,validCatalog} from '../web/storage.js';
+import {downloadCatalog,validCatalog,migrateSettings} from '../web/storage.js';
 const original={version:3,updatedAt:'2026-11-27T12:00:00Z',songs:[{id:'one',title:'Песня',text:'Куплет\n\nПрипев'}]};
+test('legacy speeds reset to 20 once while preserving font and original data',()=>{
+  const legacy={font:36,speeds:{slow:12,fast:40,custom:18}};
+  const migrated=migrateSettings(legacy);
+  assert.equal(migrated.changed,true);
+  assert.deepEqual(migrated.settings,{font:36,speeds:{slow:20,fast:20,custom:20},speedResetVersion:1});
+  assert.equal(legacy.speeds.slow,12);
+});
+test('new speed choices survive every launch after migration',()=>{
+  const first=migrateSettings({font:32,speeds:{song:12}}).settings;
+  first.speeds.song=26;
+  const second=migrateSettings(first);
+  assert.equal(second.changed,false);assert.equal(second.settings.speeds.song,26);assert.equal(second.settings.font,32);
+  assert.deepEqual(migrateSettings(undefined).settings,{font:28,speeds:{},speedResetVersion:1});
+});
 test('validates full snapshots, duplicate IDs and missing text',()=>{
   assert.ok(validCatalog(original));assert.ok(validCatalog({...original,songs:[]}));
   assert.equal(validCatalog({...original,songs:[...original.songs,...original.songs]}),false);
