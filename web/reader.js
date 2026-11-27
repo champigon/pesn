@@ -7,7 +7,7 @@ const area=$('scroll-area');
 // Autoscroll is the primary function and remains user-controlled even with reduced motion.
 function toast(message) { $('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,5500); }
 function report(error) { toast(error instanceof Error ? error.message : 'Не удалось выполнить действие.'); }
-function currentSpeed(){return settings.speeds[selected?.id]??12;}
+function currentSpeed(){return settings.speeds[selected?.id]??20;}
 async function saveSettings(){try{await put('settings',settings);}catch{toast('Настройки действуют сейчас, но сохранить их на телефоне не удалось.');}}
 function renderList(){
   const all=snapshot?.catalog.songs??[],query=$('search').value.trim().toLocaleLowerCase('ru');
