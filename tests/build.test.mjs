@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile,readdir} from 'node:fs/promises';
+import {readFile,readdir,mkdir,mkdtemp,writeFile,cp,rm} from 'node:fs/promises';
+import path from 'node:path';
+import {tmpdir} from 'node:os';
 import {build,parseSong,makeCatalog} from '../scripts/build.mjs';
 import {validCatalog} from '../web/storage.js';
 
@@ -27,7 +29,8 @@ test('version depends on content, not build time or file order; empty catalog al
 test('production build contains a validated snapshot and only relative public links',async()=>{
   const catalog=await build();
   const files=(await readdir(new URL('../songs/',import.meta.url))).filter(name=>name.toLowerCase().endsWith('.txt'));
-  assert.equal(catalog.songs.length,files.length);assert.ok(validCatalog(catalog));
+  const nonempty=await Promise.all(files.map(async name=>(await readFile(new URL('../songs/'+encodeURIComponent(name),import.meta.url),'utf8')).trim().length>0));
+  assert.equal(catalog.songs.length,nonempty.filter(Boolean).length);assert.ok(validCatalog(catalog));
   const built=JSON.parse(await readFile(new URL('../dist/catalog.json',import.meta.url),'utf8'));
   assert.deepEqual(built,catalog);
   const page=await readFile(new URL('../dist/index.html',import.meta.url),'utf8');
@@ -37,4 +40,19 @@ test('production build contains a validated snapshot and only relative public li
   const sw=await readFile(new URL('../dist/sw.js',import.meta.url),'utf8');
   assert.equal(sw.includes('__SHELL_VERSION__'),false);
   for(const name of ['reader.js','storage.js','icon-192.png','icon-512.png'])assert.ok((await readFile(new URL('../dist/'+name,import.meta.url))).byteLength>0);
+});
+test('empty uploaded placeholder does not block valid songs; filling it includes it',async t=>{
+  const fixture=await mkdtemp(path.join(tmpdir(),'pesennik-empty-song-'));
+  t.after(async()=>{
+    const target=path.resolve(fixture),parent=path.resolve(tmpdir())+path.sep;
+    if(!target.startsWith(parent)||!path.basename(target).startsWith('pesennik-empty-song-'))throw new Error('Unexpected test directory');
+    await rm(target,{recursive:true,force:true});
+  });
+  await mkdir(path.join(fixture,'songs'));
+  await cp(new URL('../web/',import.meta.url),path.join(fixture,'web'),{recursive:true});
+  await writeFile(path.join(fixture,'songs','valid.txt'),'Песня\n\nКуплет');
+  await writeFile(path.join(fixture,'songs','empty.txt'),'\uFEFF\r\n  ');
+  const first=await build(fixture);assert.equal(first.songs.length,1);assert.equal(first.songs[0].id,'valid');
+  await writeFile(path.join(fixture,'songs','empty.txt'),'Новая песня\n\nНовый куплет');
+  const second=await build(fixture);assert.equal(second.songs.length,2);assert.notEqual(first.version,second.version);
 });
