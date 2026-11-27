@@ -27,6 +27,14 @@ export async function put(key,value) {
     tx.onabort=()=>reject(new Error('Не удалось сохранить сборник. Возможно, память телефона заполнена.'));
   });
 }
+export function migrateSettings(preferences) {
+  const changed=preferences?.speedResetVersion!==1;
+  const settings={font:Number.isFinite(preferences?.font)?Math.min(44,Math.max(22,preferences.font)):28,speeds:{},speedResetVersion:1};
+  for(const [id,speed] of Object.entries(preferences?.speeds??{})){
+    if(Number.isFinite(speed))settings.speeds[id]=changed?20:Math.min(40,Math.max(2,speed));
+  }
+  return {settings,changed};
+}
 export function validCatalog(c) {
   const versionOk=c&&((Number.isInteger(c.version)&&c.version>=1)||(typeof c.version==='string'&&/^[a-f0-9]{12}$/.test(c.version)));
   if (!versionOk || typeof c.updatedAt !== 'string' || !Number.isFinite(Date.parse(c.updatedAt)) || !Array.isArray(c.songs) || c.songs.length > 2000) return false;
