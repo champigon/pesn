@@ -1,4 +1,4 @@
-import {get,put,downloadCatalog,validCatalog} from './storage.js';
+import {get,put,downloadCatalog,validCatalog,migrateSettings} from './storage.js';
 const $=id=>document.getElementById(id);
 let snapshot=null, settings={font:28,speeds:{}}, selected=null, running=false, starting=false;
 let startupTimer, manualTimer, toastTimer, wakeLock=null, shellReady=false, deferredInstall=null;
@@ -123,7 +123,9 @@ async function init(){
   try{
     const [saved,preferences]=await Promise.all([get('snapshot'),get('settings')]);
     if(saved&&validCatalog(saved.catalog))snapshot=saved;
-    if(preferences){settings.font=Number.isFinite(preferences.font)?Math.min(44,Math.max(22,preferences.font)):28;settings.speeds={};for(const[id,speed]of Object.entries(preferences.speeds??{}))if(Number.isFinite(speed))settings.speeds[id]=Math.min(40,Math.max(2,speed));}
+    const migrated=migrateSettings(preferences);
+    settings=migrated.settings;
+    if(migrated.changed)await saveSettings();
     renderList();route();prepareShell();
     // The only automatic catalog request is the initial download on a device with no snapshot.
     if(!snapshot)await refresh();
