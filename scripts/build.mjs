@@ -24,7 +24,14 @@ export async function build(root=fileURLToPath(new URL('../',import.meta.url))){
   const entries=await readdir(path.join(root,'songs'),{withFileTypes:true});
   const songs=[];
   for(const entry of entries.sort((a,b)=>a.name.localeCompare(b.name,'en'))){
-    if(entry.isFile()&&entry.name.toLowerCase().endsWith('.txt'))songs.push(parseSong(entry.name,await readFile(path.join(root,'songs',entry.name),'utf8')));
+    if(entry.isFile()&&entry.name.toLowerCase().endsWith('.txt')){
+      const raw=await readFile(path.join(root,'songs',entry.name),'utf8');
+      if(!raw.trim()){
+        console.warn(`Пропущен пустой файл songs/${entry.name}. Заполните название и текст, чтобы добавить песню.`);
+        continue;
+      }
+      songs.push(parseSong(entry.name,raw));
+    }
   }
   const catalog=makeCatalog(songs);
   // Validate all songs before touching the previous successful build.
