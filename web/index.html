@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#14665b"><meta name="description" content="Общий сборник песен для совместного пения. Крупный текст и плавная прокрутка."><meta name="robots" content="noindex"><title>Песенник — поём вместе</title><link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="./icon-192.png"><link rel="stylesheet" href="./reader.css"><script type="module" src="./reader.js"></script></head>
+<body>
+<main id="library" class="library">
+  <header class="brand"><span class="brand-mark" aria-hidden="true">♫</span><span>Песенник<small>ПОЁМ ВМЕСТЕ</small></span><span class="edition">Личный хор.<br>Общая песня.</span></header>
+  <section class="intro"><p class="eyebrow">ВАШ ОБЩИЙ СБОРНИК</p><h1>Песня начинается<br>с&nbsp;нас.</h1><p class="intro-copy">Знакомые строки. Близкие голоса.<br>Выберите песню — и пойте вместе.</p><div class="music-line" aria-hidden="true"><span>♪</span><i></i><span>♫</span><i></i><span>♩</span></div></section>
+  <section class="collection" aria-labelledby="collection-title"><div class="section-heading"><h2 id="collection-title">Наши песни <span id="count"></span></h2><span class="sort-label">ПО АЛФАВИТУ</span></div>
+    <label class="search"><span aria-hidden="true">⌕</span><input type="search" id="search" placeholder="Найти песню" aria-label="Найти песню" autocomplete="off"></label>
+    <div id="songs" class="songs"></div>
+    <p id="empty" class="empty" hidden>Пока загружаем сборник…</p>
+  </section>
+  <section class="sync-card"><div><h3>Сборник с вами</h3><p id="saved-info">Подготовка приложения…</p><p id="offline-info" class="offline-info">Для первой загрузки нужен интернет.</p></div><button id="update" class="button secondary">Обновить сборник</button></section>
+  <div class="install-note"><span aria-hidden="true">＋</span><p>Всегда под рукой<small>В меню Chrome выберите «Добавить на главный экран».</small></p><button id="install" class="button secondary" hidden>Установить</button></div>
+  <footer>Для встреч, которые хочется продолжать.</footer>
+</main>
+<section id="reader" class="reader" hidden aria-label="Текст песни">
+  <header class="reader-header"><button id="back" class="button back-button">К списку</button><span class="reader-brand">♫ Песенник</span><span id="progress">0%</span></header>
+  <div id="scroll-area" class="scroll-area" tabindex="0" aria-label="Текст песни. Коснитесь для паузы или продолжения"><article class="song-article"><p class="eyebrow">ПОЁМ ВМЕСТЕ</p><h1 id="song-title"></h1><p class="touch-hint">Касание — пауза или продолжение</p><div id="lyrics" class="lyrics"></div><p class="song-end">Песня заканчивается.<br><span>Пусть остаётся настроение.</span></p></article></div>
+  <div class="reader-bottom"><p id="wake-message" class="wake-message" hidden></p><div class="reader-controls"><button id="play" class="button primary play-button" aria-pressed="false">Пауза</button><div class="control-group"><span>Скорость <b id="speed-value">12 px/с</b></span><div><button id="slower" aria-label="Медленнее">−</button><button id="faster" aria-label="Быстрее">+</button></div></div><div class="control-group"><span>Текст <b id="font-value">28</b></span><div><button id="smaller" aria-label="Уменьшить текст">А−</button><button id="larger" aria-label="Увеличить текст">А+</button></div></div></div><p id="play-state" class="play-state" role="status">Прокрутка начнётся через 2 секунды</p></div>
+</section>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<noscript>Для работы Песенника включите JavaScript в браузере.</noscript>
+</body></html>
