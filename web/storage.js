@@ -1,3 +1,4 @@
+export const DEFAULT_SPEED=15;
 let dbPromise;
 function database() {
   if (!dbPromise) dbPromise = new Promise((resolve,reject)=>{
@@ -55,4 +56,36 @@ export async function downloadCatalog(current, save=put, fetcher=fetch) {
   const snapshot={catalog,downloadedAt:new Date().toISOString()};
   await save('snapshot',snapshot);
   return {snapshot,unchanged:current?.version===catalog.version};
+}
+
+// Called only by the update button, after the catalog has been safely saved.
+export async function updateApplication(workers,apply=()=>location.reload(),timeout=25000) {
+  if(!workers){apply();return true;}
+  const previous=workers.controller,cleanup=[];
+  let timer;
+  const expired=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Не удалось дождаться обновления приложения. Попробуйте ещё раз.')),timeout);});
+  const wait=promise=>Promise.race([promise,expired]);
+  const listen=(target,event,handler)=>{target.addEventListener(event,handler);cleanup.push(()=>target.removeEventListener(event,handler));};
+  try{
+    const root=new URL('./',import.meta.url);
+    const registration=await wait(workers.getRegistration(root.href).then(existing=>existing||workers.register(new URL('sw.js',root),{scope:root.href,updateViaCache:'none'})));
+    await wait(registration.update());
+    const installing=registration.installing;
+    if(installing)await wait(new Promise((resolve,reject)=>{
+      const check=()=>{
+        if(installing.state==='redundant')reject(new Error('Не удалось загрузить новую версию приложения. Попробуйте ещё раз.'));
+        else if(['installed','activating','activated'].includes(installing.state))resolve();
+      };
+      listen(installing,'statechange',check);check();
+    }));
+    const waiting=registration.waiting;
+    if(waiting)await wait(new Promise((resolve,reject)=>{
+      const check=()=>{if(workers.controller&&workers.controller!==previous)resolve();};
+      listen(workers,'controllerchange',check);
+      listen(waiting,'statechange',()=>{if(waiting.state==='redundant')reject(new Error('Не удалось применить обновление приложения. Попробуйте ещё раз.'));});
+      waiting.postMessage('SKIP_WAITING');check();
+    }));
+    if(workers.controller&&workers.controller!==previous){apply();return true;}
+    return false;
+  }finally{clearTimeout(timer);for(const remove of cleanup)remove();}
 }
