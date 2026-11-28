@@ -4,12 +4,13 @@ const CACHE=PREFIX+'__SHELL_VERSION__';
 const SHELL=['./','index.html','reader.css','reader.js','storage.js','manifest.webmanifest','icon.svg','icon-192.png','icon-512.png'].map(file=>new URL(file,BASE).href);
 // Fetch a coherent fresh shell, bypassing HTTP-cached files from a previous release.
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL.map(url=>new Request(url,{cache:'reload'}))))));
-// Updates wait until all readers are closed. Never reload an open song.
+// Background updates wait; the update button explicitly activates a complete shell.
 self.addEventListener('activate',event=>event.waitUntil((async()=>{
   for(const key of await caches.keys())if(key.startsWith(PREFIX)&&key!==CACHE)await caches.delete(key);
   await self.clients.claim();
 })()));
 self.addEventListener('message',event=>{
+  if(event.data==='SKIP_WAITING'){event.waitUntil(self.skipWaiting());return;}
   if(event.data==='SHELL_STATUS')event.waitUntil((async()=>{
     const cache=await caches.open(CACHE);
     const complete=(await Promise.all(SHELL.map(url=>cache.match(url)))).every(Boolean);
