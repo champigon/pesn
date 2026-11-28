@@ -1,4 +1,4 @@
-import {get,put,downloadCatalog,validCatalog,migrateSettings,DEFAULT_SPEED,updateApplication} from './storage.js';
+import {get,put,downloadCatalog,validCatalog,migrateSettings,DEFAULT_SPEED,updateApplication,shellRegistration} from './storage.js';
 const $=id=>document.getElementById(id);
 let snapshot=null, settings={font:28,speeds:{}}, selected=null, running=false, starting=false;
 let startupTimer, manualTimer, toastTimer, wakeLock=null, shellReady=false, deferredInstall=null;
@@ -118,9 +118,8 @@ $('install').addEventListener('click',async()=>{if(deferredInstall){await deferr
 async function prepareShell(){
   if(!('serviceWorker'in navigator)){ $('offline-info').textContent='Этот браузер не поддерживает автономный запуск.';return; }
   try{
-    const root=new URL('./',import.meta.url);
-    await navigator.serviceWorker.register(new URL('sw.js',root),{scope:root.href,updateViaCache:'none'});
-    const registration=await navigator.serviceWorker.ready;
+    let registration=await shellRegistration(navigator.serviceWorker);
+    if(!registration.active)registration=await navigator.serviceWorker.ready;
     const channel=new MessageChannel();
     channel.port1.onmessage=e=>{shellReady=!!e.data.complete;offlineStatus();};
     registration.active?.postMessage('SHELL_STATUS',[channel.port2]);
