@@ -59,6 +59,11 @@ export async function downloadCatalog(current, save=put, fetcher=fetch) {
 }
 
 // Called only by the update button, after the catalog has been safely saved.
+export async function shellRegistration(workers) {
+  const root=new URL('./',import.meta.url);
+  // Looking up an existing registration is local; do not register or update it on launch.
+  return await workers.getRegistration(root.href)||workers.register(new URL('sw.js',root),{scope:root.href,updateViaCache:'none'});
+}
 export async function updateApplication(workers,apply=()=>location.reload(),timeout=25000) {
   if(!workers){apply();return true;}
   const previous=workers.controller,cleanup=[];
@@ -67,8 +72,7 @@ export async function updateApplication(workers,apply=()=>location.reload(),time
   const wait=promise=>Promise.race([promise,expired]);
   const listen=(target,event,handler)=>{target.addEventListener(event,handler);cleanup.push(()=>target.removeEventListener(event,handler));};
   try{
-    const root=new URL('./',import.meta.url);
-    const registration=await wait(workers.getRegistration(root.href).then(existing=>existing||workers.register(new URL('sw.js',root),{scope:root.href,updateViaCache:'none'})));
+    const registration=await wait(shellRegistration(workers));
     await wait(registration.update());
     const installing=registration.installing;
     if(installing)await wait(new Promise((resolve,reject)=>{
@@ -79,13 +83,24 @@ export async function updateApplication(workers,apply=()=>location.reload(),time
       listen(installing,'statechange',check);check();
     }));
     const waiting=registration.waiting;
+    const target=waiting||registration.active;
+    let prepared=false;
+    if(target){
+      const channel=new MessageChannel();
+      cleanup.push(()=>{channel.port1.close();channel.port2.close();});
+      const result=await wait(new Promise((resolve,reject)=>{
+        channel.port1.onmessage=event=>event.data?.complete?resolve(event.data):reject(new Error(event.data?.error||'Не удалось загрузить приложение. Попробуйте ещё раз.'));
+        target.postMessage('PREPARE_SHELL',[channel.port2]);
+      }));
+      prepared=result.changed;
+    }
     if(waiting)await wait(new Promise((resolve,reject)=>{
       const check=()=>{if(workers.controller&&workers.controller!==previous)resolve();};
       listen(workers,'controllerchange',check);
       listen(waiting,'statechange',()=>{if(waiting.state==='redundant')reject(new Error('Не удалось применить обновление приложения. Попробуйте ещё раз.'));});
       waiting.postMessage('SKIP_WAITING');check();
     }));
-    if(workers.controller&&workers.controller!==previous){apply();return true;}
+    if(prepared||(workers.controller&&workers.controller!==previous)){apply();return true;}
     return false;
   }finally{clearTimeout(timer);for(const remove of cleanup)remove();}
 }
