@@ -32,13 +32,14 @@ object ApkVerification {
     }
     @Suppress("DEPRECATION")
     private fun signatures(info: PackageInfo): Set<String> {
-        val signatures = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners else info.signatures
+        val signatures = if (Build.VERSION.SDK_INT >= 28) info.signingInfo?.apkContentsSigners ?: info.signatures else info.signatures
         return signatures?.map { MessageDigest.getInstance("SHA-256").digest(it.toByteArray()).joinToString("") { byte -> "%02x".format(byte) } }?.toSet() ?: emptySet()
     }
     @Suppress("DEPRECATION")
     fun verify(context: Context, file: File, update: AppUpdate) {
         require(sha256(file) == update.sha256) { "Проверка APK не пройдена. Файл не будет установлен." }
-        val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
+        // Android 9/10 collects archive certificates only when GET_SIGNATURES is also set.
+        val flags = PackageManager.GET_SIGNATURES or if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else 0
         val archive = context.packageManager.getPackageArchiveInfo(file.absolutePath, flags) ?: error("Повреждённый APK")
         val installed = context.packageManager.getPackageInfo(context.packageName, flags)
         val code = if (Build.VERSION.SDK_INT >= 28) archive.longVersionCode else archive.versionCode.toLong()
