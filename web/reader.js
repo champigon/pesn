@@ -1,4 +1,4 @@
-import {get,put,downloadCatalog,validCatalog,migrateSettings} from './storage.js';
+import {get,put,downloadCatalog,validCatalog,migrateSettings,DEFAULT_SPEED,updateApplication} from './storage.js';
 const $=id=>document.getElementById(id);
 let snapshot=null, settings={font:28,speeds:{}}, selected=null, running=false, starting=false;
 let startupTimer, manualTimer, toastTimer, wakeLock=null, shellReady=false, deferredInstall=null;
@@ -7,7 +7,7 @@ const area=$('scroll-area');
 // Autoscroll is the primary function and remains user-controlled even with reduced motion.
 function toast(message) { $('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,5500); }
 function report(error) { toast(error instanceof Error ? error.message : 'Не удалось выполнить действие.'); }
-function currentSpeed(){return settings.speeds[selected?.id]??20;}
+function currentSpeed(){return settings.speeds[selected?.id]??DEFAULT_SPEED;}
 async function saveSettings(){try{await put('settings',settings);}catch{toast('Настройки действуют сейчас, но сохранить их на телефоне не удалось.');}}
 function renderList(){
   const all=snapshot?.catalog.songs??[],query=$('search').value.trim().toLocaleLowerCase('ru');
@@ -29,11 +29,18 @@ function renderList(){
 function offlineStatus(){
   $('offline-info').textContent=snapshot&&shellReady?'Готово к работе без интернета':snapshot?'Песни сохранены. Подготавливаем автономный запуск…':'Для первой загрузки нужен интернет.';
 }
-async function refresh(){
+async function refresh(updateApp=false){
   $('update').disabled=true;$('update').textContent='Загружаем…';
   try{
     const {snapshot:next,unchanged}=await downloadCatalog(snapshot?.catalog);
-    snapshot=next;renderList();toast(unchanged?'Сборник уже актуален':'Сборник обновлён и сохранён на телефоне');
+    snapshot=next;renderList();
+    if(updateApp){
+      $('update').textContent='Проверяем приложение…';
+      try{
+        if(await updateApplication(navigator.serviceWorker,()=>{location.reload();}))return;
+      }catch(error){toast(`Песни сохранены. ${error instanceof TypeError?'Нет связи для обновления приложения. Попробуйте позже.':error.message}`);return;}
+    }
+    toast(unchanged?(updateApp?'Сборник и приложение уже актуальны':'Сборник уже актуален'):'Сборник обновлён и сохранён на телефоне');
     if(location.hash) route();
   }catch(e){renderList();report(e instanceof TypeError || e?.name==='TimeoutError' ? new Error('Нет связи с сервером. Сохранённые песни остаются на телефоне. Попробуйте позже.') : e);}
   finally{$('update').disabled=false;$('update').textContent='Обновить сборник';}
@@ -105,14 +112,14 @@ window.addEventListener('resize',()=>{autoPosition=area.scrollTop;lastApplied=ar
 $('play').addEventListener('click',toggle);$('back').addEventListener('click',()=>{history.replaceState(null,'',location.pathname);closeSong();});
 for(const [id,delta] of [['slower',-2],['faster',2]])$(id).addEventListener('click',()=>{if(!selected)return;settings.speeds[selected.id]=Math.max(2,Math.min(40,currentSpeed()+delta));controls();saveSettings();});
 for(const [id,delta] of [['smaller',-2],['larger',2]])$(id).addEventListener('click',()=>{settings.font=Math.max(22,Math.min(44,settings.font+delta));controls();autoPosition=area.scrollTop;lastApplied=area.scrollTop;saveSettings();});
-$('search').addEventListener('input',renderList);$('update').addEventListener('click',refresh);window.addEventListener('hashchange',route);
+$('search').addEventListener('input',renderList);$('update').addEventListener('click',()=>refresh(true));window.addEventListener('hashchange',route);
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('install').hidden=false;});
 $('install').addEventListener('click',async()=>{if(deferredInstall){await deferredInstall.prompt();deferredInstall=null;$('install').hidden=true;}});
 async function prepareShell(){
   if(!('serviceWorker'in navigator)){ $('offline-info').textContent='Этот браузер не поддерживает автономный запуск.';return; }
   try{
     const root=new URL('./',import.meta.url);
-    await navigator.serviceWorker.register(new URL('sw.js',root),{scope:root.href});
+    await navigator.serviceWorker.register(new URL('sw.js',root),{scope:root.href,updateViaCache:'none'});
     const registration=await navigator.serviceWorker.ready;
     const channel=new MessageChannel();
     channel.port1.onmessage=e=>{shellReady=!!e.data.complete;offlineStatus();};
