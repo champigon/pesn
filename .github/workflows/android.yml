@@ -48,11 +48,15 @@ jobs:
             adb shell svc data disable
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell am instrument -w -r ru.wef2000.pesennik.test/androidx.test.runner.AndroidJUnitRunner | tee android/device-tests.log
+            adb shell am instrument -w -r -e class ru.wef2000.pesennik.OfflineTest ru.wef2000.pesennik.test/androidx.test.runner.AndroidJUnitRunner | tee android/device-tests.log
             grep -Eq 'OK \([1-9][0-9]* tests?\)' android/device-tests.log
             mkdir -p android/screenshots
             adb pull /sdcard/Android/data/ru.wef2000.pesennik/files/screenshots android/screenshots
             adb shell run-as ru.wef2000.pesennik cat shared_prefs/reader.xml > android/prefs-before.xml
+            gradle -p android --no-daemon assembleDebug -PtestVersionCode=2
+            adb push android/app/build/outputs/apk/debug/app-debug.apk /sdcard/Android/data/ru.wef2000.pesennik/files/update-test.apk
+            adb shell am instrument -w -r -e class ru.wef2000.pesennik.ApkUpdateTest -e apkPath /sdcard/Android/data/ru.wef2000.pesennik/files/update-test.apk ru.wef2000.pesennik.test/androidx.test.runner.AndroidJUnitRunner | tee android/apk-update-test.log
+            grep -Eq 'OK \([1-9][0-9]* tests?\)' android/apk-update-test.log
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             adb shell run-as ru.wef2000.pesennik cat shared_prefs/reader.xml > android/prefs-after.xml
             cmp android/prefs-before.xml android/prefs-after.xml
@@ -66,3 +70,4 @@ jobs:
             android/app/build/reports/
             android/screenshots/
             android/device-tests.log
+            android/apk-update-test.log
