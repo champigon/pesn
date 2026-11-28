@@ -3,3 +3,12 @@ outputs/
 .env*
 .DS_Store
 node_modules/
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/local.properties
+*.jks
+*.keystore
+*.apk
+*.p12
+android/screenshots/
