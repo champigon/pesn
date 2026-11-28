@@ -46,10 +46,16 @@ jobs:
           script: |
             adb shell svc wifi disable
             adb shell svc data disable
-            gradle -p android --no-daemon connectedDebugAndroidTest
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -r ru.wef2000.pesennik.test/androidx.test.runner.AndroidJUnitRunner | tee android/device-tests.log
+            grep -Eq 'OK \([1-9][0-9]* tests?\)' android/device-tests.log
             mkdir -p android/screenshots
             adb pull /sdcard/Android/data/ru.wef2000.pesennik/files/screenshots android/screenshots
+            adb shell run-as ru.wef2000.pesennik cat shared_prefs/reader.xml > android/prefs-before.xml
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell run-as ru.wef2000.pesennik cat shared_prefs/reader.xml > android/prefs-after.xml
+            cmp android/prefs-before.xml android/prefs-after.xml
             adb shell am start -n ru.wef2000.pesennik/.MainActivity
       - uses: actions/upload-artifact@v4
         if: always()
@@ -59,3 +65,4 @@ jobs:
             android/app/build/outputs/apk/release/*.apk
             android/app/build/reports/
             android/screenshots/
+            android/device-tests.log
