@@ -4,6 +4,9 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.TrafficStats
 import android.os.Process
+import android.os.SystemClock
+import android.content.pm.ActivityInfo
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
@@ -27,6 +30,12 @@ class OfflineTest {
         instrumentation.uiAutomation.takeScreenshot()?.let { bitmap -> File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }; bitmap.recycle() }
     }
     private fun <T : View> tagged(activity: MainActivity, tag: String): T = activity.window.decorView.findViewWithTag(tag)
+    private fun tap(view: View) {
+        val now = SystemClock.uptimeMillis()
+        for ((action, time) in listOf(MotionEvent.ACTION_DOWN to now, MotionEvent.ACTION_UP to now + 40)) {
+            val event = MotionEvent.obtain(now, time, action, 50f, 100f, 0); view.dispatchTouchEvent(event); event.recycle()
+        }
+    }
 
     @Test fun installedReaderStaysOfflineThroughReadingSearchAndLifecycle() {
         val before = ManualNetwork.openedConnections.get()
@@ -40,6 +49,10 @@ class OfflineTest {
                 songs.performItemClick(songs.adapter.getView(0, null, songs), 0, 0)
                 assertTrue(activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON != 0)
                 assertTrue(tagged<TextView>(activity, "speed").text.contains("15"))
+                tap(tagged<SongScroll>(activity, "lyrics-scroll"))
+                assertEquals("Продолжить", tagged<Button>(activity, "play").text.toString())
+                tap(tagged<SongScroll>(activity, "lyrics-scroll"))
+                assertEquals("Пауза", tagged<Button>(activity, "play").text.toString())
             }
             Thread.sleep(2800)
             scenario.onActivity { activity ->
@@ -48,7 +61,10 @@ class OfflineTest {
                 assertTrue(activity.window.attributes.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON != 0)
                 tagged<Button>(activity, "faster").performClick(); assertTrue(tagged<TextView>(activity, "speed").text.contains("17"))
                 screenshot("reader")
+                repeat(8) { tagged<Button>(activity, "larger").performClick() }
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             }
+            Thread.sleep(1000)
             scenario.recreate()
             scenario.onActivity { activity -> assertTrue(tagged<TextView>(activity, "speed").text.contains("17")); assertEquals("Продолжить", tagged<Button>(activity, "play").text.toString()) }
             scenario.moveToState(Lifecycle.State.CREATED); scenario.moveToState(Lifecycle.State.RESUMED)
